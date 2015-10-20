@@ -40,8 +40,9 @@ int
 main (int argc, char **argv)
 {
   int * restrict has_adj;
-  int fd;
+  FILE *fd;
   int64_t desired_nedge;
+  ssize_t write_sz;
   if (sizeof (int64_t) < 8) {
     fprintf (stderr, "No 64-bit support.\n");
     return EXIT_FAILURE;
@@ -71,9 +72,9 @@ main (int argc, char **argv)
   if (VERBOSE) fprintf (stderr, " done.\n");
 
   if (dumpname)
-    fd = open (dumpname, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+	fd = fopen(dumpname, "w");
   else
-    fd = 1;
+    fd = stdout;
 
   if (fd < 0) {
     fprintf (stderr, "Cannot open output file : %s\n",
@@ -81,14 +82,19 @@ main (int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  write (fd, IJ, nedge * sizeof (*IJ));
+  write_sz = fwrite(IJ, sizeof(*IJ), nedge, fd);
 
-  close (fd);
+  if (write_sz != nedge) {
+	  fprintf(stderr, "cannot dump all edges\n");
+	  return EXIT_FAILURE;
+  }
+
+  fclose (fd);
 
   if (rootname)
-    fd = open (rootname, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+	fd = fopen(rootname, "w");
   else
-    fd = -1;
+    fd = stderr;
 
   if (rootname >= 0) {
     has_adj = xmalloc_large (nvtx_scale * sizeof (*has_adj));
@@ -127,8 +133,14 @@ main (int argc, char **argv)
     }
 
     xfree_large (has_adj);
-    write (fd, bfs_root, NBFS * sizeof (*bfs_root));
-    close (fd);
+	write_sz = fwrite(bfs_root, sizeof(*bfs_root), NBFS, fd);
+
+	if (write_sz != NBFS) {
+		fprintf(stderr, "cannot dump all samples\n");
+		return EXIT_FAILURE;
+	}
+
+    fclose (fd);
   }
 
   return EXIT_SUCCESS;

@@ -90,18 +90,22 @@ main (int argc, char **argv)
     }
     if (VERBOSE) fprintf (stderr, " done.\n");
   } else {
-    int fd;
+    FILE* fd;
     ssize_t sz;
-    if ((fd = open (dumpname, O_RDONLY)) < 0) {
+    if ((fd = fopen (dumpname, "r")) < 0) {
       perror ("Cannot open input graph file");
       return EXIT_FAILURE;
     }
-    sz = nedge * sizeof (*IJ);
-    if (sz != read (fd, IJ, sz)) {
+	fseek(fd, 0L, SEEK_END);
+	sz = ftell(fd);
+	fseek(fd, 0L, SEEK_SET);
+	nedge = sz / (sizeof(*IJ));
+    IJ = xmalloc_large_ext (nedge * sizeof (*IJ));
+    if (nedge != fread (IJ, sizeof(*IJ), nedge, fd)) {
       perror ("Error reading input graph file");
       return EXIT_FAILURE;
     }
-    close (fd);
+    fclose (fd);
   }
 
   run_bfs ();
@@ -176,18 +180,28 @@ run_bfs (void)
 
     xfree_large (has_adj);
   } else {
-    int fd;
+    FILE* fd;
     ssize_t sz;
-    if ((fd = open (rootname, O_RDONLY)) < 0) {
+    if ((fd = fopen (rootname, "r")) < 0) {
       perror ("Cannot open input BFS root file");
       exit (EXIT_FAILURE);
     }
-    sz = NBFS * sizeof (*bfs_root);
-    if (sz != read (fd, bfs_root, sz)) {
+	fseek(fd, 0L, SEEK_END);
+	sz = ftell(fd);
+	fseek(fd, 0L, SEEK_SET);
+	NBFS = sz / (sizeof(*bfs_root));
+
+	if (NBFS > NBFS_max) {
+		fprintf(stderr, "root file is too big, change NBFS_max in src code\n");
+		exit (EXIT_FAILURE);
+	}
+
+
+    if (NBFS != fread (bfs_root, sizeof(*bfs_root), NBFS, fd)) {
       perror ("Error reading input BFS root file");
       exit (EXIT_FAILURE);
     }
-    close (fd);
+    fclose (fd);
   }
 
   for (m = 0; m < NBFS; ++m) {
